@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Notes</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-tr from-blue-100 to-purple-100 dark:from-gray-900 dark:to-gray-800 min-h-screen text-gray-900 dark:text-white transition duration-300">
+  <div class="max-w-3xl mx-auto p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-3xl font-bold">📝 My Notes</h1>
+      <div class="space-x-2">
+        <!-- <button onclick="toggleDarkMode()" class="px-3 py-1 bg-gray-300 dark:bg-gray-700 rounded">🌗 Toggle Dark Mode</button> -->
+        <a href="/logout" class="text-red-500 underline">Logout</a>
+      </div>
+    </div>
+
+    <form method="POST" action="/notes" class="mb-6">
+      <textarea name="content" rows="3" placeholder="Write your note..." class="w-full p-3 border rounded-md dark:bg-gray-700 dark:text-white"></textarea>
+      <button class="mt-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">Add Note</button>
+    </form>
+
+    <div class="flex mb-4 gap-2">
+      <input id="search" type="text" placeholder="Search notes..." class="flex-1 p-2 border rounded-md dark:bg-gray-700 dark:text-white" />
+      <button onclick="exportNotes()" class="bg-green-500 hover:bg-green-600 text-white px-4 rounded">📤 Download</button>
+    </div>
+
+    <div id="notes" class="space-y-4"></div>
+  </div>
+
+  <script>
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("darkMode", document.body.classList.contains("dark"));
+    }
+
+    window.onload = () => {
+      if (localStorage.getItem("darkMode") === "true") {
+        document.body.classList.add("dark");
+      }
+      document.getElementById("search").addEventListener("input", searchNotes);
+      loadNotes();
+    };
+
+    async function loadNotes(query = "") {
+      const res = await fetch("/notes-data");
+      const notes = await res.json();
+      const container = document.getElementById("notes");
+      container.innerHTML = "";
+      notes.filter(n => n.content.toLowerCase().includes(query.toLowerCase())).forEach(note => {
+        container.innerHTML += `
+          <div class="bg-white dark:bg-gray-700 p-4 rounded-md shadow">
+            <textarea class="note-textarea hidden w-full bg-transparent p-2 dark:bg-gray-600 dark:text-white border rounded" data-id="${note.id}">${note.content}</textarea>
+            <p class="note-text">${note.content}</p>
+            <div class="flex justify-end mt-2 space-x-3">
+              <button onclick="toggleEdit(${note.id})" class="text-blue-600">Edit</button>
+              <button onclick="saveNote(${note.id})" class="text-green-600 hidden save-btn">Save</button>
+              <form method="POST" action="/notes/delete/${note.id}">
+                <button class="text-red-600">Delete</button>
+              </form>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function toggleEdit(id) {
+      const textarea = document.querySelector(`textarea[data-id="${id}"]`);
+      const textPara = textarea.nextElementSibling;
+      const saveBtn = textarea.parentElement.querySelector(".save-btn");
+      textarea.classList.toggle("hidden");
+      textPara.classList.toggle("hidden");
+      saveBtn.classList.toggle("hidden");
+    }
+
+    async function saveNote(id) {
+      const textarea = document.querySelector(`textarea[data-id="${id}"]`);
+      const content = textarea.value;
+      await fetch(`/notes/edit/${id}`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ content })
+      });
+      loadNotes();
+    }
+
+    function searchNotes() {
+      const query = document.getElementById("search").value;
+      loadNotes(query);
+    }
+
+    async function exportNotes() {
+      const res = await fetch("/notes-data");
+      const notes = await res.json();
+      const text = notes.map(n => `- ${n.content}`).join("\\n");
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "my-notes.txt";
+      a.click();
+    }
+  </script>
+</body>
+</html>
